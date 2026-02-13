@@ -1,4 +1,4 @@
-# DuoRead (旧称: 没入型翻訳)
+# DuoRead 
 
 <div align="center">
   <img src="icons/icon128.png" alt="DuoRead Logo" width="128" />
