@@ -428,18 +428,21 @@
             popupCard.style.left = `${viewportWidth - 330}px`;
         }
 
+        const escapedText = escapeHtml(text);
         popupCard.innerHTML = `
       <div class="immersive-translate-card-header">
         <span>翻訳結果</span>
-        <span style="cursor:pointer;" onclick="this.parentElement.parentElement.remove()">×</span>
+        <span class="immersive-translate-close-btn" style="cursor:pointer;">×</span>
       </div>
       <div class="immersive-translate-card-content">
-        <div class="immersive-translate-original-text">${text}</div>
+        <div class="immersive-translate-original-text">${escapedText}</div>
         <div class="immersive-translate-translated-text immersive-translate-loading-text">
           <span>翻訳中...</span>
         </div>
       </div>
     `;
+
+        popupCard.querySelector('.immersive-translate-close-btn').addEventListener('click', removePopup);
         document.body.appendChild(popupCard);
 
         try {
