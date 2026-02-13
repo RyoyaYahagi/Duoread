@@ -53,7 +53,7 @@
             if (el.closest(EXCLUDE_SELECTORS)) continue;
 
             // テキストが空または短すぎる場合はスキップ
-            const text = getTranslatableText(el).trim();
+            const { text } = getTranslatableText(el);
             if (!text || text.length < 2) continue;
 
             // 日本語が大半のテキストはスキップ（既に日本語）
@@ -66,13 +66,16 @@
     }
 
     /**
-     * 翻訳対象テキストを取得（数式などをプレースホルダー化）
+     * 翻訳対象テキストとプレースホルダーマップを取得
+     * @returns {{text: string, placeholderMap: Object}}
      */
     function getTranslatableText(element) {
         // クローンを作成して処理（元のDOMを破壊しないため）
         const clone = element.cloneNode(true);
+        const placeholderMap = {};
+        let placeholderIndex = 0;
 
-        // 数式要素を特定して置換
+        // 数式要素を特定してプレースホルダーに置換
         const mathSelectors = [
             '.MathJax', '.jax', '.math', '.katex', '.mjx-chtml',
             'script[type^="math/"]', 'math'
@@ -80,19 +83,61 @@
 
         const mathElements = clone.querySelectorAll(mathSelectors);
         mathElements.forEach(el => {
-            el.textContent = ' [数式] ';
+            // 一意なIDを生成（例: __MATH_0__）
+            const id = `__MATH_${placeholderIndex++}__`;
+            placeholderMap[id] = el.outerHTML; // 元のHTMLを保持
+            el.textContent = ` ${id} `;
         });
 
         // コードブロックなども置換（念のため）
         const codeElements = clone.querySelectorAll('code, pre');
         codeElements.forEach(el => {
-            el.textContent = ' [コード] ';
+            const id = `__CODE_${placeholderIndex++}__`;
+            placeholderMap[id] = el.outerHTML;
+            el.textContent = ` ${id} `;
         });
 
         // 改行を空白に置換して1行にする
-        return (clone.innerText || clone.textContent || '')
+        const text = (clone.innerText || clone.textContent || '')
             .replace(/\s+/g, ' ')
             .trim();
+
+        return { text, placeholderMap };
+    }
+
+    /**
+     * プレースホルダーを含む翻訳文をHTMLに復元
+     */
+    function restorePlaceholders(translatedText, placeholderMap) {
+        if (!translatedText) return '';
+        let html = escapeHtml(translatedText);
+
+        // プレースホルダーを置換
+        for (const [id, originalHtml] of Object.entries(placeholderMap)) {
+            // 翻訳過程でスペースが入ったり全角になったりする場合に対応
+            // __MATH_0__ -> __MATH_ 0 __, ＿MATH_0＿ 等の揺らぎを吸収
+            const escapedId = id.replace(/_/g, '[_＿]');
+            const pattern = new RegExp(escapedId.split('').join('\\s*'), 'gi');
+
+            // 復元（HTMLとして挿入するため安全性を確認済みとする）
+            // ※originalHtmlはDOMから取得したものなので基本的には安全だが
+            // 念のため信頼済みソースとして扱う
+            html = html.replace(pattern, `<span class="immersive-translate-placeholder">${originalHtml}</span>`);
+        }
+
+        return html;
+    }
+
+    /**
+     * HTMLエスケープ処理
+     */
+    function escapeHtml(text) {
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 
     /**
@@ -125,7 +170,9 @@
             const batchSize = 20;
             for (let i = 0; i < targets.length; i += batchSize) {
                 const batch = targets.slice(i, i + batchSize);
-                const texts = batch.map(el => getTranslatableText(el));
+                // 各要素のテキストとプレースホルダーマップを取得
+                const batchData = batch.map(el => getTranslatableText(el));
+                const texts = batchData.map(d => d.text);
 
                 // ローディング表示
                 batch.forEach(el => {
@@ -155,7 +202,12 @@
                     batch.forEach((el, index) => {
                         removeLoadingIndicator(el);
                         if (response.translated[index]) {
-                            insertTranslation(el, response.translated[index]);
+                            // プレースホルダーを復元して挿入
+                            const translatedHtml = restorePlaceholders(
+                                response.translated[index],
+                                batchData[index].placeholderMap
+                            );
+                            insertTranslation(el, translatedHtml, true); // HTMLとして挿入
                             el.setAttribute(TRANSLATED_ATTR, 'done');
                         }
                     });
@@ -176,8 +228,11 @@
 
     /**
      * 翻訳文を元の要素の直下に挿入
+     * @param {HTMLElement} originalElement - 原文要素
+     * @param {string} content - 翻訳文（テキストまたはHTML）
+     * @param {boolean} isHtml - contentがHTMLかどうか
      */
-    function insertTranslation(originalElement, translatedText) {
+    function insertTranslation(originalElement, content, isHtml = false) {
         // 既存の翻訳要素を削除
         const existing = originalElement.nextElementSibling;
         if (existing && existing.classList.contains(TRANSLATE_CLASS)) {
@@ -188,7 +243,12 @@
         const translationEl = document.createElement(originalElement.tagName);
         translationEl.className = TRANSLATE_CLASS;
         translationEl.setAttribute(SOURCE_ATTR, 'google');
-        translationEl.textContent = translatedText;
+
+        if (isHtml) {
+            translationEl.innerHTML = content;
+        } else {
+            translationEl.textContent = content;
+        }
 
         // 原文要素の直後に挿入
         originalElement.after(translationEl);
