@@ -3,23 +3,95 @@
  * Google翻訳APIとの通信、メッセージングハブ
  */
 
-// --- Google翻訳API ---
+// --- 翻訳キャッシュ & API ---
 
 /**
- * Google翻訳の無料エンドポイントでテキストを翻訳
- * @param {string[]} texts - 翻訳対象テキスト配列
- * @param {string} sourceLang - ソース言語 (例: 'en')
- * @param {string} targetLang - ターゲット言語 (例: 'ja')
- * @returns {Promise<string[]>} 翻訳結果配列
+ * テキストのSHA-256ハッシュを生成（キャッシュキー用）
+ */
+async function getHash(text) {
+  const msgBuffer = new TextEncoder().encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * テキスト配列を翻訳（キャッシュ優先）
  */
 async function translateTexts(texts, sourceLang = 'en', targetLang = 'ja') {
+  const cacheKey = `tr_cache_${sourceLang}_${targetLang}`;
+  const cacheResult = await chrome.storage.local.get([cacheKey]);
+  const cache = cacheResult[cacheKey] || {};
+
+  const results = new Array(texts.length).fill(null);
+  const uncachedIndices = [];
+  const uncachedTexts = [];
+
+  // キャッシュ確認
+  for (let i = 0; i < texts.length; i++) {
+    const text = texts[i];
+    const hash = await getHash(text);
+
+    if (cache[hash]) {
+      results[i] = cache[hash];
+    } else {
+      uncachedIndices.push(i);
+      uncachedTexts.push(text);
+    }
+  }
+
+  // 全てキャッシュにある場合
+  if (uncachedTexts.length === 0) {
+    return results;
+  }
+
+  // 未キャッシュ分をAPIリクエスト
+  try {
+    const apiResults = await fetchTranslationsFromApi(uncachedTexts, sourceLang, targetLang);
+
+    // 結果を統合 & キャッシュ更新
+    const newCache = {};
+    for (let i = 0; i < uncachedTexts.length; i++) {
+      const originalIndex = uncachedIndices[i];
+      const translated = apiResults[i];
+      const text = uncachedTexts[i];
+      const hash = await getHash(text);
+
+      results[originalIndex] = translated;
+      newCache[hash] = translated;
+    }
+
+    // キャッシュ保存（非同期）
+    chrome.storage.local.set({
+      [cacheKey]: { ...cache, ...newCache }
+    });
+
+  } catch (error) {
+    console.error('翻訳APIエラー:', error);
+    // エラー時はキャッシュ値のみ返す（未翻訳分はnull）
+    // またはエラーをスローして呼び出し元に通知
+    throw error;
+  }
+
+  return results;
+}
+
+/**
+ * Google翻訳APIを実行（バッチ処理・リトライ付き）
+ */
+async function fetchTranslationsFromApi(texts, sourceLang, targetLang) {
   const results = [];
   const batchSize = 10; // 1リクエストあたりの最大テキスト数
 
   for (let i = 0; i < texts.length; i += batchSize) {
     const batch = texts.slice(i, i + batchSize);
     const batchResults = await translateBatch(batch, sourceLang, targetLang);
-    results.push(...batchResults);
+    // 単一の文字列が返された場合（batchサイズ1の時など）の対応
+    if (Array.isArray(batchResults)) {
+      results.push(...batchResults);
+    } else {
+      results.push(batchResults);
+    }
 
     // レート制限対策: バッチ間にディレイ
     if (i + batchSize < texts.length) {

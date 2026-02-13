@@ -28,7 +28,8 @@
         '.immersive-translate-result',
         '.immersive-translate-wrapper',
         '[contenteditable="true"]',
-        '[translate="no"]'
+        '[translate="no"]',
+        '.MathJax', '.jax', '.math', '.katex', '.mjx-chtml' // 数式除外
     ].join(',');
 
     let isTranslated = false;
@@ -251,4 +252,132 @@
             return false;
         }
     });
+
+    // --- 選択テキスト翻訳 ---
+
+    let popupBtn = null;
+    let popupCard = null;
+
+    document.addEventListener('mouseup', handleSelection);
+    document.addEventListener('mousedown', (e) => {
+        // ポップアップ以外をクリックしたら閉じる
+        if (popupCard && !popupCard.contains(e.target) && e.target !== popupBtn) {
+            removePopup();
+        }
+        // アイコン以外をクリックしたらアイコンも消す
+        if (popupBtn && !popupBtn.contains(e.target)) {
+            removePopupBtn();
+        }
+    });
+
+    function handleSelection(e) {
+        // 既存のポップアップがあれば処理しない（閉じる処理はmousedownで行う）
+        if (popupCard && popupCard.contains(e.target)) return;
+
+        setTimeout(() => {
+            const selection = window.getSelection();
+            const text = selection.toString().trim();
+
+            if (!text || text.length < 2 || isMainlyJapanese(text)) {
+                removePopupBtn();
+                return;
+            }
+
+            // 選択範囲の座標を取得
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+
+            // アイコンを表示
+            showPopupBtn(rect.right, rect.bottom + window.scrollY, text);
+        }, 10);
+    }
+
+    function showPopupBtn(x, y, text) {
+        removePopupBtn();
+
+        popupBtn = document.createElement('button');
+        popupBtn.className = 'immersive-translate-popup-btn';
+        popupBtn.innerHTML = `
+      <svg viewBox="0 0 24 24">
+        <path d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0014.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04M18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12m-2.62 7l1.62-4.33L19.12 17h-3.24z"/>
+      </svg>
+    `;
+
+        // スタイル調整（絶対位置）
+        popupBtn.style.left = `${x + 5}px`;
+        popupBtn.style.top = `${y + 10}px`;
+
+        popupBtn.addEventListener('mousedown', (e) => {
+            e.stopPropagation(); // 選択解除を防ぐ
+            translateSelection(text, x, y);
+        });
+
+        document.body.appendChild(popupBtn);
+    }
+
+    function removePopupBtn() {
+        if (popupBtn) {
+            popupBtn.remove();
+            popupBtn = null;
+        }
+    }
+
+    function removePopup() {
+        if (popupCard) {
+            popupCard.remove();
+            popupCard = null;
+        }
+    }
+
+    async function translateSelection(text, x, y) {
+        removePopupBtn();
+
+        // カードをローディング状態で表示
+        popupCard = document.createElement('div');
+        popupCard.className = 'immersive-translate-popup-card';
+        popupCard.style.left = `${x}px`;
+        popupCard.style.top = `${y + 10}px`;
+
+        // 画面からはみ出さないように調整
+        const viewportWidth = window.innerWidth;
+        if (x + 320 > viewportWidth) {
+            popupCard.style.left = `${viewportWidth - 330}px`;
+        }
+
+        popupCard.innerHTML = `
+      <div class="immersive-translate-card-header">
+        <span>翻訳結果</span>
+        <span style="cursor:pointer;" onclick="this.parentElement.parentElement.remove()">×</span>
+      </div>
+      <div class="immersive-translate-card-content">
+        <div class="immersive-translate-original-text">${text}</div>
+        <div class="immersive-translate-translated-text immersive-translate-loading-text">
+          <span>翻訳中...</span>
+        </div>
+      </div>
+    `;
+        document.body.appendChild(popupCard);
+
+        try {
+            const response = await chrome.runtime.sendMessage({
+                type: 'TRANSLATE',
+                texts: [text],
+                sourceLang: 'auto', // 自動判定
+                targetLang: 'ja'
+            });
+
+            if (response && response.translated && response.translated[0]) {
+                const resultEl = popupCard.querySelector('.immersive-translate-translated-text');
+                resultEl.textContent = response.translated[0];
+                resultEl.classList.remove('immersive-translate-loading-text');
+            } else {
+                throw new Error('翻訳失敗');
+            }
+        } catch (error) {
+            const resultEl = popupCard.querySelector('.immersive-translate-translated-text');
+            resultEl.textContent = '翻訳エラーが発生しました';
+            resultEl.style.color = 'red';
+            resultEl.classList.remove('immersive-translate-loading-text');
+        }
+    }
 })();
