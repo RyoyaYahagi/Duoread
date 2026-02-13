@@ -29,7 +29,8 @@
         '.immersive-translate-wrapper',
         '[contenteditable="true"]',
         '[translate="no"]',
-        '.MathJax', '.jax', '.math', '.katex', '.mjx-chtml' // 数式除外
+        '.MathJax', '.jax', '.math', '.katex', '.mjx-chtml', // 数式除外
+        'table' // 表を除外
     ].join(',');
 
     let isTranslated = false;
