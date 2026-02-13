@@ -19,7 +19,11 @@ async function getHash(text) {
  * テキスト配列を翻訳（キャッシュ優先）
  */
 async function translateTexts(texts, sourceLang = 'en', targetLang = 'ja') {
-  const cacheKey = `tr_cache_${sourceLang}_${targetLang}`;
+  const { translationEngine } = await chrome.storage.sync.get(['translationEngine']);
+  const engine = translationEngine || 'google';
+
+  // キャッシュキーにエンジン名を含める
+  const cacheKey = `tr_cache_${engine}_${sourceLang}_${targetLang}`;
   const cacheResult = await chrome.storage.local.get([cacheKey]);
   const cache = cacheResult[cacheKey] || {};
 
@@ -47,7 +51,8 @@ async function translateTexts(texts, sourceLang = 'en', targetLang = 'ja') {
 
   // 未キャッシュ分をAPIリクエスト
   try {
-    const apiResults = await fetchTranslationsFromApi(uncachedTexts, sourceLang, targetLang);
+    // 統合された fetchTranslations を呼び出し
+    const apiResults = await fetchTranslations(uncachedTexts, sourceLang, targetLang);
 
     // 結果を統合 & キャッシュ更新
     const newCache = {};
@@ -69,23 +74,93 @@ async function translateTexts(texts, sourceLang = 'en', targetLang = 'ja') {
   } catch (error) {
     console.error('翻訳APIエラー:', error);
     // エラー時はキャッシュ値のみ返す（未翻訳分はnull）
-    // またはエラーをスローして呼び出し元に通知
     throw error;
   }
 
   return results;
 }
 
+
+/**
+ * 翻訳エンジンの分岐処理
+ */
+async function fetchTranslations(texts, sourceLang, targetLang) {
+  const { translationEngine, geminiApiKey } = await chrome.storage.sync.get(['translationEngine', 'geminiApiKey']);
+
+  if (translationEngine === 'gemini' && geminiApiKey) {
+    return await fetchTranslationsFromGemini(texts, sourceLang, targetLang, geminiApiKey);
+  } else {
+    return await fetchTranslationsFromGoogle(texts, sourceLang, targetLang);
+  }
+}
+
+/**
+ * Gemini APIを実行
+ */
+async function fetchTranslationsFromGemini(texts, sourceLang, targetLang, apiKey) {
+  // Gemini 2.5 Flash Lite (User Requested)
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
+
+  // プロンプト構築
+  const prompt = `You are a professional translator. Translate the following texts from ${sourceLang} to ${targetLang}. 
+    Return the output as a strict JSON array of strings. Maintain the original formatting and placeholders (e.g., __MATH_0__, __CODE_1__) exactly.
+    Do not add any explanations or markdown code blocks (like \`\`\`json). Just the raw JSON array.
+    
+    Texts to translate:
+    ${JSON.stringify(texts)}`;
+
+  const body = {
+    contents: [{
+      parts: [{ text: prompt }]
+    }]
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini API Error ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    const candidate = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!candidate) {
+      throw new Error('No response from Gemini');
+    }
+
+    // JSONパース（Markdownコードブロック除去を含む）
+    const cleanedJson = candidate.replace(/```json\n|```/g, '').trim();
+    const translatedTexts = JSON.parse(cleanedJson);
+
+    if (!Array.isArray(translatedTexts) || translatedTexts.length !== texts.length) {
+      throw new Error('Gemini returned invalid response format or length mismatch');
+    }
+
+    return translatedTexts;
+
+  } catch (error) {
+    console.error('Gemini Translation Failed:', error);
+    // フォールバックするかエラーを投げるか。今回はGoogle翻訳へフォールバックせずエラーを表示
+    throw error;
+  }
+}
+
 /**
  * Google翻訳APIを実行（バッチ処理・リトライ付き）
  */
-async function fetchTranslationsFromApi(texts, sourceLang, targetLang) {
+async function fetchTranslationsFromGoogle(texts, sourceLang, targetLang) {
   const results = [];
   const batchSize = 10; // 1リクエストあたりの最大テキスト数
 
   for (let i = 0; i < texts.length; i += batchSize) {
     const batch = texts.slice(i, i + batchSize);
-    const batchResults = await translateBatch(batch, sourceLang, targetLang);
+    const batchResults = await translateBatchGoogle(batch, sourceLang, targetLang);
     // 単一の文字列が返された場合（batchサイズ1の時など）の対応
     if (Array.isArray(batchResults)) {
       results.push(...batchResults);
@@ -105,7 +180,7 @@ async function fetchTranslationsFromApi(texts, sourceLang, targetLang) {
 /**
  * バッチ単位でGoogle翻訳APIにリクエスト
  */
-async function translateBatch(texts, sourceLang, targetLang) {
+async function translateBatchGoogle(texts, sourceLang, targetLang) {
   const url = new URL('https://translate.googleapis.com/translate_a/t');
   url.searchParams.set('client', 'gtx');
   url.searchParams.set('sl', sourceLang);
@@ -148,7 +223,7 @@ async function translateBatch(texts, sourceLang, targetLang) {
         return String(item);
       });
     } catch (error) {
-      console.error(`翻訳リクエスト失敗 (試行 ${attempt + 1}/${maxRetries}):`, error);
+      console.error(`Google翻訳リクエスト失敗 (試行 ${attempt + 1}/${maxRetries}):`, error);
       if (attempt < maxRetries - 1) {
         await delay(Math.pow(2, attempt) * 500); // 指数バックオフ
       } else {

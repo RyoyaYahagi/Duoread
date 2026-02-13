@@ -14,7 +14,8 @@
         <img src="../icons/icon48.png" alt="没入型翻訳" width="24" height="24">
         <span class="popup-title">DuoRead</span>
       </div>
-      <span class="popup-version">v1.0</span>
+      <span class="popup-version">v1.1</span>
+      <button id="settings-btn" class="icon-btn" title="設定">⚙️</button>
     </div>
 
     <!-- 言語ペア表示 -->
@@ -36,6 +37,39 @@
     <!-- ショートカットヒント -->
     <div class="shortcut-hint">
       <kbd>Alt</kbd> + <kbd>T</kbd> でトグル
+    </div>
+  </div>
+
+  </div>
+
+  <!-- 設定画面 -->
+  <div id="settings-view" class="settings-view" style="display: none;">
+    <div class="settings-header">
+      <span class="back-btn" id="back-btn">←</span>
+      <span>設定</span>
+    </div>
+
+    <div class="settings-content">
+      <div class="setting-item">
+        <label for="engine-select">翻訳エンジン</label>
+        <select id="engine-select">
+          <option value="google">Google翻訳 (基本)</option>
+          <option value="gemini">Gemini 2.5 Flash Lite</option>
+        </select>
+      </div>
+
+      <div class="setting-item" id="gemini-key-container" style="display: none;">
+        <label for="gemini-api-key">Gemini APIキー</label>
+        <div class="input-wrapper">
+          <input type="password" id="gemini-api-key" placeholder="APIキーを入力">
+        </div>
+        <p class="hint">
+          <a href="https://aistudio.google.com/app/apikey" target="_blank">APIキーを取得する</a>
+        </p>
+      </div>
+
+      <button id="save-settings-btn" class="primary-btn">保存</button>
+      <div id="settings-status" class="status-message"></div>
     </div>
   </div>
 

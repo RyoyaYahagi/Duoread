@@ -90,4 +90,72 @@ document.addEventListener('DOMContentLoaded', async () => {
             }, 3000);
         }
     }
+
+    // --- 設定画面ロジック ---
+
+    const settingsBtn = document.getElementById('settings-btn');
+    const backBtn = document.getElementById('back-btn');
+    const settingsView = document.getElementById('settings-view');
+    const engineSelect = document.getElementById('engine-select');
+    const geminiKeyContainer = document.getElementById('gemini-key-container');
+    const geminiApiKeyInput = document.getElementById('gemini-api-key');
+    const saveSettingsBtn = document.getElementById('save-settings-btn');
+    const settingsStatus = document.getElementById('settings-status');
+
+    // 設定画面を開く
+    settingsBtn.addEventListener('click', async () => {
+        // 設定を読み込む
+        const { translationEngine, geminiApiKey } = await chrome.storage.sync.get(['translationEngine', 'geminiApiKey']);
+
+        engineSelect.value = translationEngine || 'google';
+        geminiApiKeyInput.value = geminiApiKey || '';
+
+        updateGeminiKeyVisibility();
+        settingsView.style.display = 'block';
+    });
+
+    // 設定画面を閉じる
+    backBtn.addEventListener('click', () => {
+        settingsView.style.display = 'none';
+        settingsStatus.textContent = '';
+    });
+
+    // エンジン選択変更時
+    engineSelect.addEventListener('change', updateGeminiKeyVisibility);
+
+    function updateGeminiKeyVisibility() {
+        if (engineSelect.value === 'gemini') {
+            geminiKeyContainer.style.display = 'block';
+        } else {
+            geminiKeyContainer.style.display = 'none';
+        }
+    }
+
+    // 設定を保存
+    saveSettingsBtn.addEventListener('click', () => {
+        const engine = engineSelect.value;
+        const key = geminiApiKeyInput.value.trim();
+
+        if (engine === 'gemini' && !key) {
+            showSettingsStatus('APIキーを入力してください', 'red');
+            return;
+        }
+
+        chrome.storage.sync.set({
+            translationEngine: engine,
+            geminiApiKey: key
+        }, () => {
+            showSettingsStatus('設定を保存しました', 'green');
+            setTimeout(() => {
+                settingsView.style.display = 'none';
+                popupContainer.style.display = 'block';
+                settingsStatus.textContent = '';
+            }, 1000);
+        });
+    });
+
+    function showSettingsStatus(msg, color) {
+        settingsStatus.textContent = msg;
+        settingsStatus.style.color = color;
+    }
 });
