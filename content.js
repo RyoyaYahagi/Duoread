@@ -53,7 +53,7 @@
             if (el.closest(EXCLUDE_SELECTORS)) continue;
 
             // テキストが空または短すぎる場合はスキップ
-            const text = getDirectText(el).trim();
+            const text = getTranslatableText(el).trim();
             if (!text || text.length < 2) continue;
 
             // 日本語が大半のテキストはスキップ（既に日本語）
@@ -66,10 +66,33 @@
     }
 
     /**
-     * 要素の直接テキストを取得（子要素のテキストも含む）
+     * 翻訳対象テキストを取得（数式などをプレースホルダー化）
      */
-    function getDirectText(element) {
-        return element.innerText || element.textContent || '';
+    function getTranslatableText(element) {
+        // クローンを作成して処理（元のDOMを破壊しないため）
+        const clone = element.cloneNode(true);
+
+        // 数式要素を特定して置換
+        const mathSelectors = [
+            '.MathJax', '.jax', '.math', '.katex', '.mjx-chtml',
+            'script[type^="math/"]', 'math'
+        ].join(',');
+
+        const mathElements = clone.querySelectorAll(mathSelectors);
+        mathElements.forEach(el => {
+            el.textContent = ' [数式] ';
+        });
+
+        // コードブロックなども置換（念のため）
+        const codeElements = clone.querySelectorAll('code, pre');
+        codeElements.forEach(el => {
+            el.textContent = ' [コード] ';
+        });
+
+        // 改行を空白に置換して1行にする
+        return (clone.innerText || clone.textContent || '')
+            .replace(/\s+/g, ' ')
+            .trim();
     }
 
     /**
@@ -102,7 +125,7 @@
             const batchSize = 20;
             for (let i = 0; i < targets.length; i += batchSize) {
                 const batch = targets.slice(i, i + batchSize);
-                const texts = batch.map(el => getDirectText(el).trim());
+                const texts = batch.map(el => getTranslatableText(el));
 
                 // ローディング表示
                 batch.forEach(el => {
