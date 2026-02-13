@@ -1,0 +1,210 @@
+/**
+ * 没入型翻訳 - Popup スタイル (popup.css)
+ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    width: 320px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+    background: #0f0f14;
+    color: #e4e4ec;
+}
+
+.popup-container {
+    padding: 16px;
+}
+
+/* --- ヘッダー --- */
+.popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.popup-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.popup-logo img {
+    border-radius: 6px;
+}
+
+.popup-title {
+    font-size: 15px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #818cf8, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.popup-version {
+    font-size: 11px;
+    color: #555;
+    padding: 2px 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+/* --- 言語ペア --- */
+.lang-pair {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.lang-badge {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #888;
+}
+
+.lang-badge.active {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(147, 51, 234, 0.2));
+    color: #a78bfa;
+    border: 1px solid rgba(147, 51, 234, 0.3);
+}
+
+.lang-arrow {
+    color: #555;
+    font-size: 14px;
+}
+
+/* --- 翻訳ボタン --- */
+.translate-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+}
+
+.translate-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+}
+
+.translate-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.translate-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.translate-btn.active {
+    background: linear-gradient(135deg, #10b981, #059669);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+}
+
+.translate-btn.active:hover:not(:disabled) {
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+}
+
+.translate-btn.translating {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
+    animation: pulse-btn 1.5s ease-in-out infinite;
+}
+
+.btn-icon {
+    font-size: 16px;
+}
+
+.btn-text {
+    font-size: 13px;
+}
+
+/* --- ステータス --- */
+.status {
+    display: none;
+    margin-top: 12px;
+    padding: 8px 12px;
+    font-size: 12px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.status.success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status.error {
+    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.status.loading {
+    background: rgba(245, 158, 11, 0.1);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.status.info {
+    background: rgba(99, 102, 241, 0.1);
+    color: #818cf8;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+/* --- ショートカットヒント --- */
+.shortcut-hint {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 11px;
+    color: #555;
+}
+
+kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-family: inherit;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: #888;
+}
+
+/* --- アニメーション --- */
+@keyframes pulse-btn {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
+}

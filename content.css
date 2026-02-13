@@ -1,0 +1,89 @@
+/**
+ * 没入型翻訳 - 翻訳文スタイル (content.css)
+ * 翻訳文とローディング表示のスタイル定義
+ */
+
+/* --- 翻訳結果テキスト --- */
+.immersive-translate-result {
+  display: block;
+  margin: 4px 0 8px 0;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(147, 51, 234, 0.06));
+  border-left: 3px solid rgba(99, 102, 241, 0.4);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.92em;
+  line-height: 1.65;
+  color: inherit;
+  opacity: 0.88;
+  font-style: normal;
+  letter-spacing: 0.01em;
+  transition: opacity 0.3s ease, background 0.3s ease;
+  animation: immersive-translate-fade-in 0.4s ease-out;
+}
+
+.immersive-translate-result:hover {
+  opacity: 1;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
+}
+
+/* ダークモード対応 */
+@media (prefers-color-scheme: dark) {
+  .immersive-translate-result {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(147, 51, 234, 0.12));
+    border-left-color: rgba(129, 140, 248, 0.5);
+  }
+
+  .immersive-translate-result:hover {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(147, 51, 234, 0.18));
+  }
+}
+
+/* 見出しの翻訳文はやや小さく */
+h1.immersive-translate-result { font-size: 0.85em; font-weight: normal; }
+h2.immersive-translate-result { font-size: 0.85em; font-weight: normal; }
+h3.immersive-translate-result { font-size: 0.88em; font-weight: normal; }
+h4.immersive-translate-result { font-size: 0.9em; font-weight: normal; }
+h5.immersive-translate-result { font-size: 0.92em; font-weight: normal; }
+h6.immersive-translate-result { font-size: 0.92em; font-weight: normal; }
+
+/* リスト内の翻訳文 */
+li.immersive-translate-result {
+  list-style: none;
+  margin-left: 0;
+  padding-left: 10px;
+}
+
+/* テーブルセル内の翻訳文 */
+td.immersive-translate-result,
+th.immersive-translate-result {
+  border: none;
+  padding: 4px 8px;
+}
+
+/* --- ローディングインジケータ --- */
+.immersive-translate-loading {
+  display: block;
+  margin: 4px 0;
+  padding: 4px 10px;
+  font-size: 0.82em;
+  color: rgba(99, 102, 241, 0.7);
+  font-style: italic;
+  animation: immersive-translate-pulse 1.5s ease-in-out infinite;
+}
+
+/* --- アニメーション --- */
+@keyframes immersive-translate-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 0.88;
+    transform: translateY(0);
+  }
+}
+
+@keyframes immersive-translate-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
